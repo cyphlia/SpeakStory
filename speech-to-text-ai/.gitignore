@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Whisper / model caches
+models/
+*.pt
+*.bin
+
+# Audio artifacts
+*.wav
+*.mp3
+recordings/
+tmp/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Env files
+.env

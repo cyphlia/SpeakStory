@@ -1,0 +1,21 @@
+whisper:
+  model_size: small       # tiny, base, small, medium, large-v3
+  device: cpu              # cpu or cuda
+  compute_type: int8        # int8 (fast on CPU) or float16 (GPU)
+  language: null            # e.g. "en" to force English, null = auto-detect
+
+ollama:
+  host: http://localhost:11434
+  model: llama3.1
+  temperature: 0.2
+
+audio:
+  sample_rate: 16000
+  vad_aggressiveness: 2      # 0 (permissive) - 3 (aggressive)
+  frame_duration_ms: 30      # 10, 20, or 30 (webrtcvad requirement)
+  max_silence_ms: 800        # trailing silence before an utterance ends
+  max_utterance_s: 30
+  min_utterance_ms: 300      # ignore blips shorter than this
+
+context:
+  max_turns: 6               # how many prior refined turns to feed back as context
