@@ -32,7 +32,6 @@ dist/
 SpeakStory.exe
 Launcher.cs
 
-# Docs
-*.docx
-
-
+# Docs & Interviewer Guide (Not committed to Git)
+docs/SpeakStory_Interviewer_Guide.md
+docs/*_Interviewer_Guide*

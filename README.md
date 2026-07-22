@@ -2,11 +2,7 @@
 
 **AI-powered voice notes — speak, and your words become clean, polished text.**
 
-SpeakStory is a desktop notes app that lets you capture ideas by speaking. It
-listens to your microphone, transcribes with a local Whisper model, and
-refines the transcript through a local LLM (via [Ollama](https://ollama.com))
-into grammatically correct, publication-ready text — all offline, nothing
-leaves your machine.
+SpeakStory is a modern desktop notes application that lets you capture ideas effortlessly by speaking. It listens to your microphone, transcribes with a local Whisper model, and refines the transcript through a local LLM (via [Ollama](https://ollama.com)) into grammatically correct, publication-ready text — **all 100% offline with zero cloud latency or privacy concerns**.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -14,174 +10,61 @@ leaves your machine.
 
 ---
 
-## Features
+## Key Features
 
 | Feature | Description |
 |---------|-------------|
-| 🎤 **Voice-to-text** | Click the mic, speak naturally — text appears in your note |
-| 🤖 **AI refinement** | Ollama LLM fixes grammar, removes filler words, adds punctuation |
-| 📝 **Rich notes** | Create, edit, tag, pin, search, and sort notes |
-| 🔍 **Full-text search** | Instantly filter notes by title, content, or tags |
-| 📌 **Pin & sort** | Pin important notes; sort by date, title, or creation time |
-| 🏷️ **Tags** | Organise notes with removable tag chips |
-| 💾 **Auto-save** | Changes save automatically 1 second after you stop typing |
-| 🎨 **Matte brown theme** | Premium dark UI with warm brown tones |
-| 🔒 **Fully offline** | No cloud APIs, no accounts — everything runs locally |
-| 📦 **Portable .exe** | Build a standalone `SpeakStory.exe` with PyInstaller |
+| 🖥️ **Instant Launch** | Double-click `SpeakStory.exe` to run directly in Windows without terminal commands |
+| 🎤 **Voice Activity Detection** | Auto-detects speech boundaries (WebRTC VAD) with real-time VU meter feedback |
+| 🤖 **AI Grammar Cleanup** | Ollama LLM eliminates filler words ("um", "uh"), stutters, and fixes punctuation |
+| 📝 **Rich Note Management** | Create, edit, tag, pin, search, and sort notes in a custom matte brown UI |
+| 🔍 **Full-Text Search** | Instantly search across titles, note bodies, and tag chips |
+| 📌 **Pin & Multi-Sort** | Keep key notes pinned; sort by modification date, creation date, or title |
+| 🏷️ **Tagging System** | Organize notes with interactive, removable tag pills |
+| 💾 **Debounced Auto-Save** | Saves changes automatically 1 second after typing stops |
+| 🔒 **100% Offline & Private** | Zero data sent to the cloud; everything executes locally on your hardware |
 
 ---
 
 ## How It Works
 
 ```
-microphone → VAD (voice activity detection) → Whisper (local) → raw transcript
-                                                                       |
-                                                                       ▼
-                                        rolling conversation context → Ollama LLM
-                                                                       |
-                                                                       ▼
-                                                        clean, grammatical text
-                                                                       |
-                                                                       ▼
-                                                          appended to your note
+Microphone → WebRTC VAD → Local Whisper ASR → Raw Transcript
+                                                    │
+                                                    ▼
+                        Rolling Context Buffer → Ollama LLM
+                                                    │
+                                                    ▼
+                                     Grammatically Clean Text
+                                                    │
+                                                    ▼
+                                      Appended to Note Editor
 ```
 
-1. **`src/audio_capture.py`** — records from your mic using WebRTC VAD to
-   detect when you start and stop talking, with real-time audio level
-   feedback for the UI.
-2. **`src/transcriber.py`** — runs audio through
-   [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper) for a raw
-   transcript.
-3. **`src/refiner.py`** — sends the raw transcript plus recent conversation
-   context to a local Ollama model that fixes grammar, removes fillers
-   ("um", "uh", false starts), adds punctuation, and resolves misheard words.
-4. **`src/pipeline.py`** — wires capture → transcription → refinement
-   together with threaded callbacks for the GUI.
-5. **`src/notes_manager.py`** — manages note CRUD, search, sort, and
-   persistent JSON storage in `~/.speakstory/notes/`.
-6. **`src/ui/`** — CustomTkinter-based desktop interface with sidebar,
-   note editor, speech bar, and matte brown theme.
+1. **`src/audio_capture.py`**: Captures 16kHz PCM audio via `sounddevice`, using WebRTC VAD (30ms frames) to detect utterance start/stop automatically with 800ms trailing silence.
+2. **`src/transcriber.py`**: Runs audio through `faster-whisper` (CTranslate2 INT8 engine) for rapid ASR.
+3. **`src/refiner.py`**: Passes the raw transcript and a 6-turn rolling conversation context to a local Ollama LLM (`llama3.1` or `phi3`) to fix grammar, remove filler words, and disambiguate homophones.
+4. **`src/notes_manager.py`**: Manages note CRUD operations, atomic JSON file writes, search, and multi-criteria sorting.
+5. **`src/ui/`**: Responsive CustomTkinter GUI adhering to a warm matte brown color palette (`src/ui/theme.py`).
 
 ---
 
-## Setup
+## Quick Start
 
-### 1. System Dependencies
+### 1. Launch directly (No Terminal Required)
+Double-click **`SpeakStory.exe`** in the root project folder!
 
-- **Python 3.10+**
-- [**ffmpeg**](https://ffmpeg.org/) (required by Whisper)
-- [**Ollama**](https://ollama.com/download) installed and running
-
-```bash
-# Windows (via winget)
-winget install FFmpeg
-winget install Ollama
-
-# macOS
-brew install ffmpeg
-brew install ollama
-
-# Ubuntu / Debian
-sudo apt install ffmpeg
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-### 2. Pull a Local LLM
-
-```bash
-ollama pull llama3.1
-# smaller / faster alternative:
-# ollama pull phi3
-```
-
-Make sure Ollama is running (`ollama serve` or the desktop app).
-
-### 3. Python Environment
-
-```bash
-python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS / Linux:
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-The Whisper model weights (~500 MB for `small`) download automatically on first
-launch and are cached locally.
-
-### 4. Configure
-
-Edit `config.yaml` to choose model sizes and tune VAD sensitivity:
-
-```yaml
-whisper:
-  model_size: small       # tiny, base, small, medium, large-v3
-  device: cpu              # cpu or cuda
-  compute_type: int8       # int8 (CPU) or float16 (GPU)
-
-ollama:
-  host: http://localhost:11434
-  model: llama3.1
-
-audio:
-  sample_rate: 16000
-  vad_aggressiveness: 2    # 0 (permissive) – 3 (aggressive)
-  max_silence_ms: 800      # silence before an utterance ends
-  max_utterance_s: 30
-
-context:
-  max_turns: 6             # how many prior turns to keep for context
-```
-
-Bigger Whisper models are more accurate but slower. Start with `small` on CPU;
-move to `medium` / `large-v3` with `device: cuda` if you have a GPU.
-
----
-
-## Usage
-
-### Desktop App (recommended)
-
-```bash
+### 2. Run via Python Command (Optional)
+```powershell
 python app.py
 ```
 
-This launches the SpeakStory window:
-
-- **Left sidebar** — search, sort, note list, "＋ New Note" button
-- **Centre editor** — title, tags, content area with word count
-- **Bottom speech bar** — 🎤 mic button, status indicator, audio level, AI status
-
-**Keyboard shortcuts:**
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+N` | New note |
-| `Ctrl+F` | Focus search |
-| Right-click note | Pin / Delete |
-
-### CLI Mode
-
-The original CLI still works for headless / scripting use:
-
-```bash
-# Continuous listening
-python main.py
-
-# Single utterance
-python main.py --once
-
-# Transcribe an audio file
-python main.py --file path/to/audio.wav
-```
-
-### Build Standalone .exe
-
-```bash
-python build.py
-# → dist/SpeakStory/SpeakStory.exe
-```
+### 3. Prerequisites for AI Refinement
+- Install [**Ollama**](https://ollama.com) and pull a local model:
+  ```bash
+  ollama pull llama3.1
+  ```
+- Make sure Ollama is running (`ollama serve` or desktop app). *Note: If Ollama is offline, SpeakStory gracefully falls back to raw Whisper transcripts.*
 
 ---
 
@@ -189,25 +72,28 @@ python build.py
 
 ```
 SpeakStory/
+├── SpeakStory.exe          # Native Windows executable launcher
 ├── app.py                  # Desktop GUI entry point
 ├── main.py                 # CLI entry point
-├── build.py                # PyInstaller build script
-├── config.yaml             # Model & audio configuration
-├── requirements.txt
+├── build.py                # PyInstaller & executable builder
+├── config.yaml             # Whisper & Ollama settings
+├── requirements.txt        # Python package dependencies
+├── docs/                   # Documentation & guides
+│   └── speech-to-text-ai-guide.docx
 ├── src/
-│   ├── audio_capture.py    # Mic recording + VAD + level callback
-│   ├── transcriber.py      # faster-whisper wrapper
-│   ├── refiner.py          # Ollama LLM grammar cleanup
-│   ├── pipeline.py         # Orchestration + threaded processing
-│   ├── config.py           # Config loading
-│   ├── notes_manager.py    # Note CRUD, search, sort, JSON storage
+│   ├── audio_capture.py    # Mic recording + VAD + audio level stream
+│   ├── transcriber.py      # faster-whisper INT8 ASR engine
+│   ├── refiner.py          # Ollama LLM contextual refiner
+│   ├── pipeline.py         # Threaded recognition pipeline
+│   ├── config.py           # Configuration parser
+│   ├── notes_manager.py    # JSON note CRUD, search & sort
 │   └── ui/
-│       ├── theme.py        # Matte brown design tokens
+│       ├── theme.py        # Matte brown theme palette & tokens
 │       ├── components.py   # NoteCard, TagChip, AudioLevelBar, StatusDot
 │       ├── sidebar.py      # Left panel: search, sort, note list
-│       ├── note_editor.py  # Centre panel: title, tags, editor
+│       ├── note_editor.py  # Centre panel: title, tags, content editor
 │       ├── speech_bar.py   # Bottom bar: mic, status, level, AI dot
-│       └── main_window.py  # Top-level window + controller
+│       └── main_window.py  # Main window controller
 └── tests/
     └── test_pipeline.py
 ```
@@ -216,35 +102,20 @@ SpeakStory/
 
 ## Data Storage
 
-Notes are stored as individual JSON files in:
+Notes are saved as human-readable JSON files under:
+`~/.speakstory/notes/<uuid>.json`
 
-```
-~/.speakstory/notes/<uuid>.json
-```
-
-Each file contains:
 ```json
 {
-  "id": "uuid",
-  "title": "Meeting Notes",
-  "content": "Full note text...",
-  "tags": ["work", "meeting"],
+  "id": "7b2a6f10-3e28-4e80-b219-5d4681729b10",
+  "title": "Project Brainstorming",
+  "content": "Discussed the architecture for offline speech recognition...",
+  "tags": ["work", "ai"],
   "created_at": "2026-07-22T07:00:00",
   "modified_at": "2026-07-22T07:05:00",
-  "is_pinned": false
+  "is_pinned": true
 }
 ```
-
----
-
-## Roadmap
-
-- [ ] Streaming transcription (partial results while still speaking)
-- [ ] Export notes to Markdown / PDF
-- [ ] Speaker diarization for multi-person conversations
-- [ ] Wake-word activation
-- [ ] Note categories / folders
-- [ ] Dark / light theme toggle
 
 ---
 
