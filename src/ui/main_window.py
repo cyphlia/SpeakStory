@@ -67,10 +67,19 @@ class MainWindow(ctk.CTk):
         right.grid_rowconfigure(1, weight=0)
         right.grid_columnconfigure(0, weight=1)
 
-        self.editor = NoteEditor(right, on_save=self._save_current_note)
+        self.editor = NoteEditor(
+            right,
+            on_save=self._save_current_note,
+            on_delete=self._delete_note,
+            on_pin_toggle=self._pin_toggle,
+        )
         self.editor.grid(row=0, column=0, sticky="nsew")
 
-        self.speech_bar = SpeechBar(right, on_record_toggle=self._toggle_recording)
+        self.speech_bar = SpeechBar(
+            right,
+            on_record_toggle=self._toggle_recording,
+            on_mode_change=self._on_engine_mode_changed,
+        )
         self.speech_bar.grid(row=1, column=0, sticky="sew")
 
         # ── Keyboard shortcuts ─────────────────────────────────────────
@@ -83,8 +92,25 @@ class MainWindow(ctk.CTk):
         # ── Lazy-load speech pipeline in the background ────────────────
         threading.Thread(target=self._load_pipeline, daemon=True).start()
 
-        # ── Periodically check Ollama status ───────────────────────────
+        # ── Periodically check engine status ───────────────────────────
         self._check_ai_status()
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  Engine Mode Controls
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _on_engine_mode_changed(self, mode_key: str) -> None:
+        if self.pipeline:
+            self.pipeline.set_refiner_mode(mode_key)
+            ready = self.pipeline.check_engine_status()
+            self.speech_bar.set_engine_status(ready, mode_key)
+
+        labels = {
+            "builtin": "⚡ Built-in Engine (0MB RAM)",
+            "api":     "🌐 Cloud AI (API)",
+            "ollama":  "🦙 Local Ollama Engine",
+        }
+        self.editor.set_engine_mode_label(labels.get(mode_key, mode_key))
 
     # ═══════════════════════════════════════════════════════════════════
     #  Note operations
@@ -120,6 +146,8 @@ class MainWindow(ctk.CTk):
             note.is_pinned = not note.is_pinned
             self.notes_mgr.save_note(note)
             self._refresh_sidebar()
+            if self._current_note_id == note_id:
+                self.editor.load_note(note)
 
     def _save_current_note(self) -> None:
         """Save the note currently in the editor (called by auto-save)."""
@@ -190,6 +218,8 @@ class MainWindow(ctk.CTk):
             config = load_config()
             self.pipeline = Pipeline(config)
             self.after(0, self.speech_bar.set_ready)
+            ready = self.pipeline.check_engine_status()
+            self.after(0, lambda: self.speech_bar.set_engine_status(ready, self.pipeline.refiner.mode))
         except Exception as exc:
             self.after(0, lambda: self.speech_bar.set_status("error"))
             print(f"[main_window] Pipeline load error: {exc}")
@@ -248,11 +278,12 @@ class MainWindow(ctk.CTk):
         self.after(3000, lambda: self.speech_bar.set_status("idle"))
 
     def _check_ai_status(self) -> None:
-        """Periodically check Ollama connectivity (every 15 s)."""
+        """Periodically check active engine status (every 15 s)."""
         def check():
             if self.pipeline:
-                connected = self.pipeline.check_ollama_status()
-                self.after(0, lambda: self.speech_bar.set_ai_status(connected))
+                ready = self.pipeline.check_engine_status()
+                mode = self.pipeline.refiner.mode
+                self.after(0, lambda: self.speech_bar.set_engine_status(ready, mode))
 
         threading.Thread(target=check, daemon=True).start()
         self.after(15_000, self._check_ai_status)

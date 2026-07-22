@@ -4,6 +4,10 @@ whisper:
   compute_type: int8        # int8 (fast on CPU) or float16 (GPU)
   language: null            # e.g. "en" to force English, null = auto-detect
 
+refiner:
+  mode: builtin            # builtin (0MB RAM, fast offline), api (cloud API), or ollama
+  api_key: ""              # optional API key for Gemini / Groq cloud API
+
 ollama:
   host: http://localhost:11434
   model: llama3.1

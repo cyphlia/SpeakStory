@@ -1,11 +1,10 @@
-"""Bottom speech bar — microphone toggle, status label, audio level, AI dot.
+"""Bottom speech bar — microphone toggle, engine mode selector, status label, audio level bar.
 
-The bar communicates upward through callbacks; the MainWindow is responsible
-for threading and scheduling.
+Allows changing refinement engine mode on the fly (Built-in 0MB RAM / Cloud API / Ollama).
 """
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
 
 import customtkinter as ctk
 
@@ -18,17 +17,24 @@ class SpeechBar(ctk.CTkFrame):
 
     STATUS_LABELS = {
         "idle":         "Ready — click 🎤 to speak",
-        "loading":      "Loading AI model…",
+        "loading":      "Loading speech engine…",
         "listening":    "🔴  Listening… speak now",
         "transcribing": "✍️  Transcribing audio…",
-        "refining":     "🤖  Refining with AI…",
+        "refining":     "✨  Refining transcript…",
         "error":        "⚠️  Error — try again",
+    }
+
+    MODE_LABELS = {
+        "builtin": "⚡ Built-in (0MB RAM)",
+        "api":     "🌐 Cloud AI (API)",
+        "ollama":  "🦙 Local Ollama",
     }
 
     def __init__(
         self,
         master,
         on_record_toggle: Callable[[], None],
+        on_mode_change: Optional[Callable[[str], None]] = None,
         **kwargs,
     ):
         super().__init__(
@@ -40,6 +46,7 @@ class SpeechBar(ctk.CTkFrame):
         )
         self.pack_propagate(False)
         self._on_record_toggle = on_record_toggle
+        self._on_mode_change = on_mode_change
         self._is_recording = False
 
         # ── Inner container (centred vertically) ───────────────────────
@@ -76,16 +83,43 @@ class SpeechBar(ctk.CTkFrame):
         self.level_bar = AudioLevelBar(mid, width=300, height=8)
         self.level_bar.pack(fill="x", pady=(T.PAD_XS, 0))
 
-        # ── Right section (AI status) ──────────────────────────────────
+        # ── Right section (Mode selector + Engine dot) ─────────────────
         right = ctk.CTkFrame(inner, fg_color="transparent")
         right.pack(side="right", padx=(T.PAD_LG, 0))
 
+        # Mode Selector Dropdown
+        self.mode_var = ctk.StringVar(value="⚡ Built-in (0MB RAM)")
+        self.mode_dropdown = ctk.CTkOptionMenu(
+            right,
+            variable=self.mode_var,
+            values=[
+                "⚡ Built-in (0MB RAM)",
+                "🌐 Cloud AI (API)",
+                "🦙 Local Ollama",
+            ],
+            fg_color=T.BG_MEDIUM,
+            button_color=T.BG_LIGHT,
+            button_hover_color=T.BG_LIGHTER,
+            dropdown_fg_color=T.BG_MEDIUM,
+            dropdown_hover_color=T.BG_LIGHT,
+            dropdown_text_color=T.TEXT_PRIMARY,
+            text_color=T.TEXT_PRIMARY,
+            font=T.FONT_TINY,
+            dropdown_font=T.FONT_SMALL,
+            height=26,
+            width=160,
+            corner_radius=T.CORNER_RADIUS_SM,
+            command=self._on_dropdown_selected,
+        )
+        self.mode_dropdown.pack(side="left", padx=(0, T.PAD_SM))
+
         self.ai_dot = StatusDot(right, size=10)
         self.ai_dot.pack(side="left", padx=(0, T.PAD_XS))
+        self.ai_dot.set_status("connected")
 
         self.ai_label = ctk.CTkLabel(
-            right, text="AI",
-            font=T.FONT_TINY, text_color=T.TEXT_MUTED,
+            right, text="Ready",
+            font=T.FONT_TINY, text_color=T.SUCCESS,
         )
         self.ai_label.pack(side="left")
 
@@ -115,22 +149,42 @@ class SpeechBar(ctk.CTkFrame):
                 text="⏹" if is_rec else "🎤",
             )
 
-        # Reset level bar when not listening
         if status != "listening":
             self.level_bar.reset()
 
     def set_audio_level(self, level: float) -> None:
         self.level_bar.set_level(level)
 
-    def set_ai_status(self, connected: bool) -> None:
-        status = "connected" if connected else "offline"
-        self.ai_dot.set_status(status)
-        self.ai_label.configure(
-            text="AI Online" if connected else "AI Offline",
-            text_color=T.SUCCESS if connected else T.DANGER,
-        )
+    def set_engine_status(self, ready: bool, mode_name: str = "builtin") -> None:
+        if mode_name == "builtin":
+            self.ai_dot.set_status("connected")
+            self.ai_label.configure(text="0MB RAM Engine", text_color=T.SUCCESS)
+        elif mode_name == "api":
+            status = "connected" if ready else "offline"
+            self.ai_dot.set_status(status)
+            self.ai_label.configure(
+                text="API Key Set" if ready else "API Key Needed",
+                text_color=T.SUCCESS if ready else T.WARNING,
+            )
+        else:
+            status = "connected" if ready else "offline"
+            self.ai_dot.set_status(status)
+            self.ai_label.configure(
+                text="Ollama Online" if ready else "Ollama Offline",
+                text_color=T.SUCCESS if ready else T.DANGER,
+            )
 
     # ── Internal ───────────────────────────────────────────────────────
+
+    def _on_dropdown_selected(self, choice: str) -> None:
+        mode_key = "builtin"
+        if "Cloud AI" in choice:
+            mode_key = "api"
+        elif "Ollama" in choice:
+            mode_key = "ollama"
+
+        if self._on_mode_change:
+            self._on_mode_change(mode_key)
 
     def _toggle(self) -> None:
         self._on_record_toggle()

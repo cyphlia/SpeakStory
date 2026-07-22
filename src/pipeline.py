@@ -18,7 +18,7 @@ from .transcriber import Transcriber
 
 class Pipeline:
     def __init__(self, config: dict):
-        audio_cfg  = config["audio"]
+        audio_cfg   = config["audio"]
         whisper_cfg = config["whisper"]
         ollama_cfg  = config["ollama"]
         context_cfg = config["context"]
@@ -40,17 +40,22 @@ class Pipeline:
             language=whisper_cfg["language"],
         )
         self.refiner = Refiner(
+            mode=config.get("refiner", {}).get("mode", "builtin"),
             host=ollama_cfg["host"],
             model=ollama_cfg["model"],
             temperature=ollama_cfg["temperature"],
+            api_key=config.get("refiner", {}).get("api_key"),
         )
 
         self.context: deque[str] = deque(maxlen=context_cfg["max_turns"])
 
-    # ── Connectivity helpers ────────────────────────────────────────────────
+    # ── Refiner Mode Control ────────────────────────────────────────────────
 
-    def check_ollama_status(self) -> bool:
-        """Check whether the Ollama server is running and reachable."""
+    def set_refiner_mode(self, mode: str, api_key: Optional[str] = None) -> None:
+        self.refiner.set_mode(mode, api_key)
+
+    def check_engine_status(self) -> bool:
+        """Check whether the active refiner engine is ready."""
         return self.refiner.is_available()
 
     # ── Original CLI helpers (kept for backward compatibility) ──────────────
@@ -80,13 +85,7 @@ class Pipeline:
         on_error:  Optional[Callable[[str], None]] = None,
         stop_event: Optional[threading.Event] = None,
     ) -> None:
-        """Run the full capture → transcribe → refine pipeline.
-
-        **Call this from a background thread** — it blocks until the
-        utterance is fully processed.  The callbacks will be invoked on the
-        *same* background thread; the UI layer is responsible for scheduling
-        them onto the main thread via ``root.after()``.
-        """
+        """Run the full capture → transcribe → refine pipeline on a background thread."""
         try:
             on_status("listening")
 
@@ -115,7 +114,7 @@ class Pipeline:
             try:
                 refined_text = self.refiner.refine(raw_text, list(self.context))
             except Exception:
-                refined_text = raw_text   # show raw text if Ollama fails
+                refined_text = raw_text
 
             self.context.append(refined_text)
 

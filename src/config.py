@@ -21,6 +21,10 @@ def load_config(path: str | pathlib.Path | None = None) -> dict[str, Any]:
             "compute_type": "int8",
             "language": None,
         },
+        "refiner": {
+            "mode": "builtin",
+            "api_key": "",
+        },
         "ollama": {
             "host": "http://localhost:11434",
             "model": "llama3.1",
