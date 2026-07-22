@@ -3,14 +3,21 @@
 Records audio from the default input device and returns just the "speech"
 portion of a single utterance: recording begins once voiced frames are
 detected and ends after a configurable amount of trailing silence.
+
+GUI additions over the original:
+  - ``level_callback``  — reports RMS audio level for waveform visualization
+  - ``stop_event``      — threading.Event to cancel recording externally
 """
 from __future__ import annotations
 
 import collections
+import math
 import queue
+import struct
 import sys
+import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import sounddevice as sd
@@ -42,11 +49,28 @@ class AudioCapture:
     def _frame_is_speech(self, frame_bytes: bytes) -> bool:
         return self.vad.is_speech(frame_bytes, self.sample_rate)
 
-    def record_utterance(self, timeout_s: Optional[float] = None) -> Optional[np.ndarray]:
+    @staticmethod
+    def _rms_level(frame_bytes: bytes) -> float:
+        """Calculate normalised RMS audio level from raw int16 bytes (0.0–1.0)."""
+        count = len(frame_bytes) // 2
+        if count == 0:
+            return 0.0
+        shorts = struct.unpack(f"<{count}h", frame_bytes)
+        sum_sq = sum(s * s for s in shorts)
+        rms = math.sqrt(sum_sq / count)
+        # int16 max is 32768; typical voiced speech RMS ~1000-5000
+        return min(1.0, rms / 8000.0)
+
+    def record_utterance(
+        self,
+        timeout_s: Optional[float] = None,
+        level_callback: Optional[Callable[[float], None]] = None,
+        stop_event: Optional[threading.Event] = None,
+    ) -> Optional[np.ndarray]:
         """Block until the user starts speaking, then record until they stop
-        (trailing silence) or max_utterance_s is hit. Returns int16 mono
-        numpy array of just the speech, or None if nothing was captured
-        before timeout_s elapses.
+        (trailing silence), ``stop_event`` is set, or ``max_utterance_s`` is
+        hit.  Returns int16 mono numpy array of just the speech, or *None* if
+        nothing was captured before timeout_s elapses.
         """
         audio_q: "queue.Queue[bytes]" = queue.Queue()
 
@@ -68,19 +92,30 @@ class AudioCapture:
             channels=1,
             callback=callback,
         ):
-            print("[audio_capture] listening... (speak now)")
             while True:
+                # ── External cancellation ───────────────────────────────
+                if stop_event is not None and stop_event.is_set():
+                    break
+
+                # ── Pre-speech timeout ──────────────────────────────────
                 if timeout_s is not None and not triggered:
                     if time.monotonic() - start_time > timeout_s:
                         return None
 
                 try:
-                    frame = audio_q.get(timeout=1.0)
+                    frame = audio_q.get(timeout=0.1)
                 except queue.Empty:
+                    # Send zero level while idle so the UI bar stays alive
+                    if level_callback is not None:
+                        level_callback(0.0)
                     continue
 
                 if len(frame) < self.frame_size * 2:  # 2 bytes per int16 sample
                     continue
+
+                # Report audio level for UI waveform
+                if level_callback is not None:
+                    level_callback(self._rms_level(frame))
 
                 is_speech = self._frame_is_speech(frame)
 
@@ -88,7 +123,6 @@ class AudioCapture:
                     ring_buffer.append((frame, is_speech))
                     if is_speech:
                         triggered = True
-                        print("[audio_capture] speech detected, recording...")
                         voiced_frames.extend(f for f, _ in ring_buffer)
                         ring_buffer.clear()
                 else:
@@ -98,7 +132,8 @@ class AudioCapture:
                     num_frames_total += 1
 
                     silence_exceeded = (
-                        len(ring_buffer) == ring_buffer.maxlen and num_unvoiced == ring_buffer.maxlen
+                        len(ring_buffer) == ring_buffer.maxlen
+                        and num_unvoiced == ring_buffer.maxlen
                     )
                     too_long = num_frames_total >= self.max_utterance_frames
 

@@ -24,3 +24,12 @@ tmp/
 
 # Env files
 .env
+
+# PyInstaller build
+build/
+dist/
+*.spec
+
+# Docs
+*.docx
+
