@@ -1,10 +1,12 @@
 """SYS - Speak Your Story Refiner Engine.
 
-Supports 3 operational modes:
+Supports 4 operational modes:
   1. "builtin" (Default) — Ultra-fast, 100% offline rule-based NLP refiner.
      Takes 0 MB extra RAM, requires NO Ollama installation, runs instantly in <1ms!
-  2. "api" — Cloud AI API (Gemini / Groq / OpenAI) with zero local memory cost.
-  3. "ollama" — Optional local Ollama LLM server.
+  2. "huggingface" — Free Hugging Face Inference API (Qwen 2.5 / Mistral 7B / Llama 3.2).
+     Zero local RAM usage, completely free!
+  3. "api" — Cloud AI API (Gemini / Groq / OpenAI) with zero local memory cost.
+  4. "ollama" — Optional local Ollama LLM server.
 """
 from __future__ import annotations
 
@@ -63,13 +65,16 @@ I_CONTRACTIONS = {
     "doesnt": "doesn't",
 }
 
+DEFAULT_HF_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+
 
 class Refiner:
     def __init__(
         self,
-        mode: str = "builtin",  # "builtin", "api", "ollama"
+        mode: str = "builtin",  # "builtin", "huggingface", "api", "ollama"
         host: str = "http://localhost:11434",
         model: str = "llama3.1",
+        hf_model: str = DEFAULT_HF_MODEL,
         temperature: float = 0.2,
         api_key: Optional[str] = None,
         api_url: Optional[str] = None,
@@ -77,6 +82,7 @@ class Refiner:
         self.mode = mode.lower()
         self.host = host.rstrip("/")
         self.model = model
+        self.hf_model = hf_model
         self.temperature = temperature
         self.api_key = api_key
         self.api_url = api_url or "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
@@ -90,7 +96,7 @@ class Refiner:
 
     def is_available(self) -> bool:
         """Return True if the configured engine mode is ready."""
-        if self.mode == "builtin":
+        if self.mode in ("builtin", "huggingface"):
             return True
         if self.mode == "api":
             return bool(self.api_key and self.api_key.strip())
@@ -111,7 +117,9 @@ class Refiner:
 
         text = raw_text.strip()
 
-        if self.mode == "api" and self.api_key:
+        if self.mode == "huggingface":
+            return self._huggingface_refine(text, context_turns)
+        elif self.mode == "api" and self.api_key:
             return self._api_refine(text, context_turns)
         elif self.mode == "ollama":
             return self._ollama_refine(text, context_turns)
@@ -172,7 +180,46 @@ class Refiner:
 
         return result
 
-    # ── 2. Cloud API Refiner (Gemini / Groq / OpenAI) ───────────────────────
+    # ── 2. Free Hugging Face Inference API ─────────────────────────────────
+
+    def _huggingface_refine(self, raw_text: str, context_turns: List[str] | None = None) -> str:
+        """Call free Hugging Face Inference API (e.g. Qwen 2.5 / Mistral 7B) with zero local RAM usage."""
+        try:
+            prompt = f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+            if context_turns:
+                context_block = "\n".join(f"- {turn}" for turn in context_turns)
+                prompt += f"<|im_start|>user\nContext:\n{context_block}\n\nRaw transcript to clean:\n{raw_text}<|im_end|>\n<|im_start|>assistant\n"
+            else:
+                prompt += f"<|im_start|>user\nRaw transcript to clean up:\n{raw_text}<|im_end|>\n<|im_start|>assistant\n"
+
+            headers = {}
+            if self.api_key and self.api_key.strip():
+                headers["Authorization"] = f"Bearer {self.api_key.strip()}"
+
+            url = f"https://api-inference.huggingface.co/models/{self.hf_model}"
+            payload = {
+                "inputs": prompt,
+                "parameters": {
+                    "temperature": self.temperature,
+                    "max_new_tokens": 512,
+                    "return_full_text": False,
+                },
+            }
+            resp = requests.post(url, headers=headers, json=payload, timeout=12)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0:
+                    generated_text = data[0].get("generated_text", "").strip()
+                    if generated_text:
+                        # Clean up assistant tags if present
+                        cleaned_out = re.sub(r"<\|im_end\|>.*", "", generated_text, flags=re.DOTALL).strip()
+                        return cleaned_out or generated_text
+        except Exception as exc:
+            print(f"[refiner] Hugging Face API call failed: {exc}, falling back to builtin")
+
+        return self._builtin_refine(raw_text)
+
+    # ── 3. Other Cloud API Refiner (Gemini / Groq / OpenAI) ─────────────────
 
     def _api_refine(self, raw_text: str, context_turns: List[str] | None = None) -> str:
         """Call free cloud API (e.g. Gemini API) with zero local RAM usage."""
@@ -202,7 +249,7 @@ class Refiner:
 
         return self._builtin_refine(raw_text)
 
-    # ── 3. Ollama Refiner (Optional Local Server) ───────────────────────────
+    # ── 4. Ollama Refiner (Optional Local Server) ───────────────────────────
 
     def _ollama_refine(self, raw_text: str, context_turns: List[str] | None = None) -> str:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]

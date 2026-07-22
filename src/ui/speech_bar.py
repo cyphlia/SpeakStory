@@ -1,6 +1,6 @@
 """Bottom speech bar — microphone toggle, engine mode selector, status label, audio level bar.
 
-Allows changing refinement engine mode on the fly (Built-in 0MB RAM / Cloud API / Ollama).
+Allows changing refinement engine mode on the fly (Built-in 0MB RAM / Hugging Face Free AI / Cloud API / Ollama).
 """
 from __future__ import annotations
 
@@ -25,9 +25,10 @@ class SpeechBar(ctk.CTkFrame):
     }
 
     MODE_LABELS = {
-        "builtin": "⚡ Built-in (0MB RAM)",
-        "api":     "🌐 Cloud AI (API)",
-        "ollama":  "🦙 Local Ollama",
+        "builtin":     "⚡ Built-in (0MB RAM)",
+        "huggingface": "🤗 Hugging Face Free AI",
+        "api":         "🌐 Other Cloud API",
+        "ollama":      "🦙 Local Ollama",
     }
 
     def __init__(
@@ -94,7 +95,8 @@ class SpeechBar(ctk.CTkFrame):
             variable=self.mode_var,
             values=[
                 "⚡ Built-in (0MB RAM)",
-                "🌐 Cloud AI (API)",
+                "🤗 Hugging Face Free AI",
+                "🌐 Other Cloud API",
                 "🦙 Local Ollama",
             ],
             fg_color=T.BG_MEDIUM,
@@ -107,7 +109,7 @@ class SpeechBar(ctk.CTkFrame):
             font=T.FONT_TINY,
             dropdown_font=T.FONT_SMALL,
             height=26,
-            width=160,
+            width=175,
             corner_radius=T.CORNER_RADIUS_SM,
             command=self._on_dropdown_selected,
         )
@@ -159,6 +161,9 @@ class SpeechBar(ctk.CTkFrame):
         if mode_name == "builtin":
             self.ai_dot.set_status("connected")
             self.ai_label.configure(text="0MB RAM Engine", text_color=T.SUCCESS)
+        elif mode_name == "huggingface":
+            self.ai_dot.set_status("connected")
+            self.ai_label.configure(text="Hugging Face AI", text_color=T.SUCCESS)
         elif mode_name == "api":
             status = "connected" if ready else "offline"
             self.ai_dot.set_status(status)
@@ -178,7 +183,9 @@ class SpeechBar(ctk.CTkFrame):
 
     def _on_dropdown_selected(self, choice: str) -> None:
         mode_key = "builtin"
-        if "Cloud AI" in choice:
+        if "Hugging Face" in choice:
+            mode_key = "huggingface"
+        elif "Cloud API" in choice:
             mode_key = "api"
         elif "Ollama" in choice:
             mode_key = "ollama"

@@ -106,9 +106,10 @@ class MainWindow(ctk.CTk):
             self.speech_bar.set_engine_status(ready, mode_key)
 
         labels = {
-            "builtin": "⚡ Built-in Engine (0MB RAM)",
-            "api":     "🌐 Cloud AI (API)",
-            "ollama":  "🦙 Local Ollama Engine",
+            "builtin":     "⚡ Built-in Engine (0MB RAM)",
+            "huggingface": "🤗 Hugging Face Free AI",
+            "api":         "🌐 Cloud AI (API)",
+            "ollama":      "🦙 Local Ollama Engine",
         }
         self.editor.set_engine_mode_label(labels.get(mode_key, mode_key))
 
