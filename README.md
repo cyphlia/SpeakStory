@@ -1,8 +1,8 @@
-# SpeakStory
+# SYS - Speak Your Story
 
 **AI-powered voice notes — speak, and your words become clean, polished text.**
 
-SpeakStory is a modern desktop notes application that lets you capture ideas effortlessly by speaking. It listens to your microphone, transcribes with a local Whisper model, and refines the transcript through a local LLM (via [Ollama](https://ollama.com)) into grammatically correct, publication-ready text — **all 100% offline with zero cloud latency or privacy concerns**.
+SYS - Speak Your Story is a modern desktop notes application that lets you capture ideas effortlessly by speaking. It listens to your microphone, transcribes with a local Whisper model, and refines the transcript through a local LLM (via [Ollama](https://ollama.com)) into grammatically correct, publication-ready text — **all 100% offline with zero cloud latency or privacy concerns**.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -64,14 +64,14 @@ python app.py
   ```bash
   ollama pull llama3.1
   ```
-- Make sure Ollama is running (`ollama serve` or desktop app). *Note: If Ollama is offline, SpeakStory gracefully falls back to raw Whisper transcripts.*
+- Make sure Ollama is running (`ollama serve` or desktop app). *Note: If Ollama is offline, SYS - Speak Your Story gracefully falls back to raw Whisper transcripts.*
 
 ---
 
 ## Project Layout
 
 ```
-SpeakStory/
+SYS - Speak Your Story/
 ├── SpeakStory.exe          # Native Windows executable launcher
 ├── app.py                  # Desktop GUI entry point
 ├── main.py                 # CLI entry point
@@ -79,7 +79,7 @@ SpeakStory/
 ├── config.yaml             # Whisper & Ollama settings
 ├── requirements.txt        # Python package dependencies
 ├── docs/                   # Documentation & guides
-│   └── speech-to-text-ai-guide.docx
+│   └── SYS-speak-your-story-guide.docx
 ├── src/
 │   ├── audio_capture.py    # Mic recording + VAD + audio level stream
 │   ├── transcriber.py      # faster-whisper INT8 ASR engine

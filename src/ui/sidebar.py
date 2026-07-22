@@ -56,8 +56,8 @@ class Sidebar(ctk.CTkFrame):
         title_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            title_frame, text="📖  SpeakStory",
-            font=(T.FONT_FAMILY, 20, "bold"),
+            title_frame, text="📖  SYS - Speak Your Story",
+            font=(T.FONT_FAMILY, 18, "bold"),
             text_color=T.ACCENT,
             anchor="w",
         ).grid(row=0, column=0, sticky="w")

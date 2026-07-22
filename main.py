@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entry point for the offline speech-to-text-ai pipeline.
+"""CLI entry point for the offline SYS - Speak Your Story pipeline.
 
 Usage:
     python main.py                # continuous listening loop

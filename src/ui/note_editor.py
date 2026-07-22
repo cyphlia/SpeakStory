@@ -116,8 +116,8 @@ class NoteEditor(ctk.CTkFrame):
 
         ctk.CTkLabel(inner, text="📖", font=(T.FONT_FAMILY, 52)).pack()
         ctk.CTkLabel(
-            inner, text="SpeakStory",
-            font=(T.FONT_FAMILY, 28, "bold"), text_color=T.ACCENT,
+            inner, text="SYS - Speak Your Story",
+            font=(T.FONT_FAMILY, 24, "bold"), text_color=T.ACCENT,
         ).pack(pady=(T.PAD_SM, T.PAD_XS))
         ctk.CTkLabel(
             inner, text="Your AI-powered voice notes",

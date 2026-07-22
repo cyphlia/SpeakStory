@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""SpeakStory — AI-powered voice notes desktop app.
+"""SYS - Speak Your Story — AI-powered voice notes desktop app.
 
 Launch with:
     python app.py
 
-The original CLI entry point (main.py) still works for headless use.
+The CLI entry point (main.py) still works for headless use.
 """
 from __future__ import annotations
 

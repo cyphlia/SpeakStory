@@ -22,13 +22,13 @@ from .speech_bar import SpeechBar
 
 
 class MainWindow(ctk.CTk):
-    """Top-level SpeakStory application window."""
+    """Top-level SYS - Speak Your Story application window."""
 
     def __init__(self):
         super().__init__()
 
         # ── Window chrome ──────────────────────────────────────────────
-        self.title("SpeakStory")
+        self.title("SYS - Speak Your Story")
         self.geometry(f"{T.WINDOW_DEFAULT_W}x{T.WINDOW_DEFAULT_H}")
         self.minsize(T.WINDOW_MIN_WIDTH, T.WINDOW_MIN_HEIGHT)
         self.configure(fg_color=T.BG_DARKEST)
