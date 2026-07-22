@@ -4,11 +4,12 @@
 Usage:
     python build.py
 
-Produces  dist/SpeakStory/SpeakStory.exe  (single-folder distribution).
+Produces SpeakStory.exe directly in the project root folder.
 """
 from __future__ import annotations
 
 import pathlib
+import shutil
 import subprocess
 import sys
 
@@ -17,36 +18,47 @@ ROOT = pathlib.Path(__file__).resolve().parent
 
 def main() -> int:
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable, "-m", "PyInstaller.__main__",
         "--name", "SpeakStory",
         "--noconfirm",
-        "--windowed",                         # no console window
-        # Collect customtkinter data files (required for CTk widgets)
-        "--collect-data", "customtkinter",
-        # Include our source packages
+        "--windowed",                          # no console window
+        "--onefile",                           # single executable file
+        "--collect-all", "customtkinter",
+        "--collect-all", "ctranslate2",
+        "--collect-all", "faster_whisper",
         "--add-data", f"{ROOT / 'src'};src",
         "--add-data", f"{ROOT / 'config.yaml'};.",
-        # Hidden imports that PyInstaller may miss
         "--hidden-import", "sounddevice",
         "--hidden-import", "webrtcvad",
-        "--hidden-import", "faster_whisper",
         "--hidden-import", "requests",
         "--hidden-import", "yaml",
         "--hidden-import", "numpy",
         "--hidden-import", "PIL",
+        "--distpath", str(ROOT / "dist"),
+        "--workpath", str(ROOT / "build"),
     ]
 
-    # Add icon if available
     icon = ROOT / "assets" / "icon.ico"
     if icon.exists():
         cmd.extend(["--icon", str(icon)])
 
-    # Entry point
     cmd.append(str(ROOT / "app.py"))
 
-    print(f"Running: {' '.join(cmd)}\n")
+    print(f"Running PyInstaller build:\n{' '.join(cmd)}\n")
     result = subprocess.run(cmd, cwd=str(ROOT))
-    return result.returncode
+    if result.returncode != 0:
+        print("PyInstaller build failed!")
+        return result.returncode
+
+    # Copy generated SpeakStory.exe to root directory for easy double-clicking
+    dist_exe = ROOT / "dist" / "SpeakStory.exe"
+    target_exe = ROOT / "SpeakStory.exe"
+    if dist_exe.exists():
+        shutil.copy2(dist_exe, target_exe)
+        print(f"\nSUCCESS! Created standalone executable:\n{target_exe}")
+        print("You can double-click SpeakStory.exe directly from File Explorer to launch the application.")
+
+    return 0
 
 
 if __name__ == "__main__":

@@ -29,7 +29,10 @@ tmp/
 build/
 dist/
 *.spec
+SpeakStory.exe
+Launcher.cs
 
 # Docs
 *.docx
+
 
