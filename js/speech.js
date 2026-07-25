@@ -2,10 +2,10 @@
  * SYS - Speak Your Story — Web Speech API Wrapper
  *
  * Uses the browser's built-in Web Speech API (webkitSpeechRecognition /
- * SpeechRecognition) for real-time speech-to-text. Falls back to a helpful
- * error message if the browser doesn't support it.
+ * SpeechRecognition) for real-time speech-to-text.
  *
- * Also provides audio level visualization via Web Audio API.
+ * Features robust error recovery, auto-retry on Chrome 'network' errors,
+ * non-continuous segmenting for network stability, and Web Audio API level metering.
  */
 
 class SpeechEngine {
@@ -24,6 +24,9 @@ class SpeechEngine {
 
         this._interimTranscript = '';
         this._finalTranscript = '';
+        this._retryCount = 0;
+        this._maxRetries = 3;
+        this._restartTimer = null;
 
         if (this.isSupported) {
             this._initRecognition();
@@ -45,13 +48,16 @@ class SpeechEngine {
     _initRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.recognition = new SpeechRecognition();
-        this.recognition.continuous = true;
+
+        // Using false prevents long-connection timeouts in Chrome's Web Speech engine
+        this.recognition.continuous = false;
         this.recognition.interimResults = true;
         this.recognition.lang = 'en-US';
         this.recognition.maxAlternatives = 1;
 
         this.recognition.onstart = () => {
             this.isListening = true;
+            this._retryCount = 0; // Reset retries on clean start
             this._emitStatus('listening');
         };
 
@@ -68,7 +74,6 @@ class SpeechEngine {
                 }
             }
 
-            // If we have a final transcript, emit it
             if (this._finalTranscript.trim()) {
                 if (this._onResult) {
                     this._onResult(this._finalTranscript.trim());
@@ -77,22 +82,59 @@ class SpeechEngine {
         };
 
         this.recognition.onerror = (event) => {
-            console.warn('[Speech] Error:', event.error);
+            console.warn('[Speech] Error event:', event.error);
+
             if (event.error === 'not-allowed') {
-                this._emitError('Microphone access denied. Please allow microphone permissions.');
-            } else if (event.error === 'no-speech') {
-                // Not a critical error, just no speech detected
+                this.isListening = false;
+                this._emitError('Microphone access denied. Please check browser permissions.');
+                this._stopAudioAnalysis();
                 return;
+            }
+
+            if (event.error === 'no-speech') {
+                // Ignore silent intervals; loop will restart on end
+                return;
+            }
+
+            if (event.error === 'network') {
+                console.warn(`[Speech] Network glitch detected (attempt ${this._retryCount + 1}/${this._maxRetries}). Auto-reconnecting…`);
+                if (this.isListening && this._retryCount < this._maxRetries) {
+                    this._retryCount++;
+                    // Schedule quiet auto-restart
+                    clearTimeout(this._restartTimer);
+                    this._restartTimer = setTimeout(() => {
+                        if (this.isListening) {
+                            try { this.recognition.start(); } catch (e) { /* ignore busy */ }
+                        }
+                    }, 500);
+                    return;
+                } else {
+                    this._emitError('Speech network error. Google Speech service timed out. Retrying or type your notes.');
+                }
             } else {
                 this._emitError(`Speech error: ${event.error}`);
             }
+
             this.stop();
         };
 
         this.recognition.onend = () => {
-            this.isListening = false;
-            this._emitStatus('idle');
-            this._stopAudioAnalysis();
+            // If user did not explicitly stop recording, automatically restart loop
+            if (this.isListening) {
+                clearTimeout(this._restartTimer);
+                this._restartTimer = setTimeout(() => {
+                    if (this.isListening) {
+                        try {
+                            this.recognition.start();
+                        } catch (e) {
+                            // Already started or busy
+                        }
+                    }
+                }, 200);
+            } else {
+                this._emitStatus('idle');
+                this._stopAudioAnalysis();
+            }
         };
     }
 
@@ -107,23 +149,33 @@ class SpeechEngine {
             return;
         }
 
-        try {
-            // Start audio analysis for level meter
-            await this._startAudioAnalysis();
+        this.isListening = true;
+        this._retryCount = 0;
 
+        try {
+            await this._startAudioAnalysis();
             this._emitStatus('listening');
             this.recognition.start();
         } catch (err) {
             console.error('[Speech] Start failed:', err);
-            this._emitError('Failed to start speech recognition.');
+            // If recognition is already running, try stopping first
+            try {
+                this.recognition.stop();
+                setTimeout(() => {
+                    if (this.isListening) this.recognition.start();
+                }, 300);
+            } catch (e) {
+                this._emitError('Failed to start microphone speech input.');
+            }
         }
     }
 
     stop() {
-        if (this.recognition && this.isListening) {
-            this.recognition.stop();
-        }
         this.isListening = false;
+        clearTimeout(this._restartTimer);
+        if (this.recognition) {
+            try { this.recognition.stop(); } catch (e) {}
+        }
         this._emitStatus('idle');
         this._stopAudioAnalysis();
     }
@@ -140,6 +192,7 @@ class SpeechEngine {
 
     async _startAudioAnalysis() {
         try {
+            if (this.mediaStream) return;
             this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const source = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -148,7 +201,7 @@ class SpeechEngine {
             source.connect(this.analyser);
             this._analyseLevel();
         } catch (err) {
-            console.warn('[Speech] Audio analysis unavailable:', err);
+            console.warn('[Speech] Audio level analysis unavailable:', err);
         }
     }
 
@@ -158,11 +211,10 @@ class SpeechEngine {
         const data = new Uint8Array(this.analyser.frequencyBinCount);
         this.analyser.getByteFrequencyData(data);
 
-        // Calculate RMS level normalised to 0–1
         let sum = 0;
         for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
         const rms = Math.sqrt(sum / data.length) / 255;
-        const level = Math.min(1, rms * 2.5); // amplify for better visual response
+        const level = Math.min(1, rms * 2.5);
 
         if (this._onLevel) this._onLevel(level);
 
