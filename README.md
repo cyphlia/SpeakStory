@@ -2,75 +2,97 @@
 
 **AI-powered voice notes — speak, and your words become clean, polished text.**
 
-SYS - Speak Your Story is a modern desktop notes application that lets you capture ideas effortlessly by speaking. It listens to your microphone, transcribes with a local Whisper model, and refines the transcript through your choice of **0MB RAM Built-in Offline Engine**, **Hugging Face Free AI API**, **Cloud API (Gemini/Groq)**, or **Local Ollama** — **all fully self-contained in a standalone executable with zero heavy LLM downloads required!**
+SYS - Speak Your Story is a multi-platform voice-enabled notes application. It captures your thoughts via speech, transcribes with high accuracy, and refines the transcript through your choice of **⚡ 0MB RAM Built-in Offline Engine**, **🤗 Hugging Face Free AI API**, **🌐 Cloud API (Gemini/Groq/OpenAI)**, or **🦙 Local Ollama**.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![Web PWA](https://img.shields.io/badge/Web-PWA-brightgreen)
+![Android](https://img.shields.io/badge/Platform-Windows%20%7C%20Web%20%7C%20Android-brown)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 
 ---
 
-## Key Features
+## 🌐 Multi-Platform Availability
+
+| Platform | Access / Install | Engine Support |
+|----------|------------------|----------------|
+| 🖥️ **Windows Desktop** | Double-click `SpeakStory.exe` or run `python app.py` | Local Whisper ASR + Built-in / HF / Cloud / Ollama |
+| 📱 **Android Mobile** | Install via APK (`mobile/android`) or add PWA to Home Screen | Web Speech API + Built-in / HF AI |
+| 🌍 **Web App (PWA)** | [Live Demo: cyphlia.github.io/SpeakStory/](https://cyphlia.github.io/SpeakStory/) | Browser Web Speech + Built-in / HF AI |
+
+---
+
+## ✨ Key Features
 
 | Feature | Description |
 |---------|-------------|
 | ⚡ **0MB RAM Built-In Engine** | Instant offline grammar/filler cleanup without downloading Ollama or heavy 4GB+ LLMs! |
 | 🤗 **Hugging Face Free AI** | Free serverless LLM refinement (Qwen 2.5 / Mistral 7B / Llama 3.2) via Hugging Face API |
-| 🖥️ **Instant Windows Launch** | Double-click `SpeakStory.exe` to run directly in Windows without terminal commands |
-| 🎤 **Voice Activity Detection** | Auto-detects speech boundaries (WebRTC VAD) with real-time VU meter feedback |
-| 🤖 **Multi-Engine Refinement** | Switch dynamically between ⚡ Built-in (0MB RAM), 🤗 Hugging Face AI, 🌐 Cloud API, or 🦙 Local Ollama |
-| 📝 **Action Toolbar** | Copy note to clipboard (`📋 Copy`), export to Desktop (`📥 Export`), Pin (`📌`), Delete (`🗑️`) |
+| ✨ **AI Action Tools** | Single-click **"✨ Summarize"** (1-2 sentence summary) and **"📝 Improve Writing"** (grammar/style polish) |
+| 📱 **Android & PWA Ready** | Responsive mobile interface, offline service worker caching, and installable manifest |
+| 🖥️ **Instant Windows Launch** | Double-click `SpeakStory.exe` to run directly on Windows without terminal commands |
+| 🎤 **Voice Activity Detection** | Auto-detects speech boundaries (WebRTC VAD / Web Speech) with real-time VU meter & waveform |
+| ⏱️ **Live Recording Timer** | Displays real-time elapsed recording timer (`🔴 MM:SS`) during active voice input |
+| 🏷️ **Auto-Colored Tags** | Deterministic hash-colored tag pills for visual organization |
+| 📁 **Quick-Filter Tabs** | Instant filtering between **All Notes**, **📌 Pinned**, and **🕐 Recent** |
+| 📝 **Action Toolbar** | Copy to clipboard (`📋 Copy`), export as Markdown (`📥 Export`), Pin (`📌`), Delete (`🗑️`) |
 | 🔍 **Full-Text Search** | Instantly search across titles, note bodies, and tag chips |
-| 📌 **Pin & Multi-Sort** | Keep key notes pinned; sort by modification date, creation date, or title |
-| 🏷️ **Tagging System** | Organize notes with interactive, removable tag pills |
 | 💾 **Debounced Auto-Save** | Saves changes automatically 1 second after typing stops |
 
 ---
 
-## How It Works
+## 🏗️ Architecture
 
 ```
-Microphone → WebRTC VAD → Local Whisper ASR → Raw Transcript
-                                                    │
-                                                    ▼
-         ┌──────────────────────────────────────────┴──────────────────────────────────────────┐
-         │                                          │                                          │
-         ▼                                          ▼                                          ▼
-⚡ Built-in Fast Engine                   🤗 Hugging Face Free AI                       🌐 Cloud API / 🦙 Ollama
-(0MB RAM, Instant Rule-Based)             (Qwen 2.5 / Mistral 7B)                     (Deep Context Cleanup)
-         │                                          │                                          │
-         └──────────────────────────────────────────┼──────────────────────────────────────────┘
-                                                    │
-                                                    ▼
-                                      Appended to Note Editor
-```
-
-1. **`src/audio_capture.py`**: Captures 16kHz PCM audio via `sounddevice`, using WebRTC VAD (30ms frames) to detect utterance start/stop automatically with 800ms trailing silence.
-2. **`src/transcriber.py`**: Runs audio through `faster-whisper` (CTranslate2 INT8 engine) for rapid ASR.
-3. **`src/refiner.py`**:
-   - **`builtin` (Default)**: Ultra-fast offline NLP engine that cleans disfluencies ("um", "uh", "you know"), stutters, fixes capitalization & punctuation with **0 MB extra RAM** and **zero setup**!
-   - **`huggingface`**: Free Hugging Face Inference API for open-source LLMs (Qwen 2.5 / Mistral 7B) with zero local RAM.
-   - **`api`**: Free Cloud API (Gemini / Groq / OpenAI) for cloud refinement.
-   - **`ollama`**: Optional local Ollama LLM server.
-4. **`src/notes_manager.py`**: Manages note CRUD operations, atomic JSON file writes, search, and multi-criteria sorting.
-5. **`src/ui/`**: Responsive CustomTkinter GUI adhering to a warm matte brown color palette (`src/ui/theme.py`).
-
----
-
-## Quick Start
-
-### 1. Launch directly (No Setup Required)
-Double-click **`SpeakStory.exe`** in the root project folder!
-*(No Ollama or LLM downloads needed! Runs out-of-the-box using the built-in fast engine or Hugging Face API.)*
-
-### 2. Run via Python Command (Optional)
-```powershell
-python app.py
+                                Microphone Input
+                                       │
+                ┌──────────────────────┴──────────────────────┐
+                ▼                                             ▼
+       Desktop (Python/C#)                             Web / Mobile (JS)
+  [sounddevice + WebRTC VAD]                     [Web Speech + Web Audio]
+                │                                             │
+                ▼                                             ▼
+       faster-whisper (INT8)                          Browser ASR Engine
+                │                                             │
+                └──────────────────────┬──────────────────────┘
+                                       │
+                                       ▼
+         ┌─────────────────────────────┴─────────────────────────────┐
+         │                                                           │
+         ▼                                                           ▼
+⚡ Built-in Fast Engine                                     🤗 Hugging Face Free AI
+(0MB RAM, Instant Rule-Based Cleanup)                       (Serverless Open LLMs)
+         │                                                           │
+         └─────────────────────────────┬─────────────────────────────┘
+                                       │
+                                       ▼
+                       Appended to Note Editor & Persisted
+                     (Desktop: JSON | Web/Mobile: localStorage)
 ```
 
 ---
 
-## Project Layout
+## 🚀 Quick Start
+
+### 1. Web App (Any Device)
+Open the live PWA directly in your browser:  
+👉 **[https://cyphlia.github.io/SpeakStory/](https://cyphlia.github.io/SpeakStory/)**
+
+### 2. Windows Desktop Executable
+Double-click **`SpeakStory.exe`** in the root project directory.  
+*(Or launch via Python command: `python app.py`)*
+
+### 3. Android Mobile Build
+```bash
+cd mobile
+npm install
+npx cap sync android
+# Build debug APK with Android Studio or Gradle:
+cd android && .\gradlew assembleDebug
+```
+
+---
+
+## 📁 Project Layout
 
 ```
 SYS - Speak Your Story/
@@ -82,19 +104,32 @@ SYS - Speak Your Story/
 ├── requirements.txt        # Python package dependencies
 ├── docs/                   # Documentation & guides
 │   └── SYS-speak-your-story-guide.docx
+├── web/                    # Progressive Web App (PWA)
+│   ├── index.html          # Web app SPA layout
+│   ├── css/style.css       # Matte brown responsive design system
+│   ├── js/
+│   │   ├── notes.js        # Note CRUD & localStorage persistence
+│   │   ├── refiner.js      # Built-in + Hugging Face text refiner
+│   │   ├── speech.js       # Web Speech API & VU meter
+│   │   └── app.js          # Controller & event wiring
+│   ├── manifest.json       # PWA manifest
+│   ├── sw.js               # Service Worker for offline caching
+│   └── icons/              # PWA app icons (192x192, 512x512)
+├── mobile/                 # Capacitor Android app wrapper
+│   ├── capacitor.config.json # Capacitor mobile configuration
+│   └── android/            # Android Studio project & manifest
 ├── src/
 │   ├── audio_capture.py    # Mic recording + VAD + audio level stream
 │   ├── transcriber.py      # faster-whisper INT8 ASR engine
 │   ├── refiner.py          # Built-in 0MB RAM refiner + Hugging Face + API + Ollama
 │   ├── pipeline.py         # Threaded recognition pipeline
-│   ├── config.py           # Configuration parser
 │   ├── notes_manager.py    # JSON note CRUD, search & sort
 │   └── ui/
 │       ├── theme.py        # Matte brown theme palette & tokens
-│       ├── components.py   # NoteCard, TagChip, AudioLevelBar, StatusDot
-│       ├── sidebar.py      # Left panel: search, sort, note list
-│       ├── note_editor.py  # Centre panel: action toolbar, title, tags, editor
-│       ├── speech_bar.py   # Bottom bar: mic, status, level, engine selector dropdown
+│       ├── components.py   # NoteCard, TagChip, AudioLevelBar, StatusDot, WaveformBar
+│       ├── sidebar.py      # Left panel: search, quick-filters, sort, note list
+│       ├── note_editor.py  # Centre panel: AI action toolbar, title, tags, editor
+│       ├── speech_bar.py   # Bottom bar: mic, timer, status, level, waveform, engine selector
 │       └── main_window.py  # Main window controller
 └── tests/
     └── test_pipeline.py
@@ -102,25 +137,25 @@ SYS - Speak Your Story/
 
 ---
 
-## Data Storage
+## 💾 Data Storage
 
-Notes are saved as human-readable JSON files under:
-`~/.speakstory/notes/<uuid>.json`
+- **Desktop**: JSON files stored under `~/.speakstory/notes/<uuid>.json`
+- **Web / Mobile**: Stored in `localStorage` (`sys_notes`) in identical JSON schema for seamless import/export compatibility.
 
 ```json
 {
   "id": "7b2a6f10-3e28-4e80-b219-5d4681729b10",
   "title": "Project Brainstorming",
-  "content": "Discussed the architecture for offline speech recognition...",
+  "content": "Discussed the multi-platform architecture for voice notes...",
   "tags": ["work", "ai"],
-  "created_at": "2026-07-22T07:00:00",
-  "modified_at": "2026-07-22T07:05:00",
+  "created_at": "2026-07-26T02:00:00",
+  "modified_at": "2026-07-26T02:05:00",
   "is_pinned": true
 }
 ```
 
 ---
 
-## License
+## 📄 License
 
 MIT — see `LICENSE`.

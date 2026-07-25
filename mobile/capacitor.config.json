@@ -1,0 +1,11 @@
+{
+  "appId": "com.cyphlia.speakyourstory",
+  "appName": "SYS - Speak Your Story",
+  "webDir": "../web",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="SYS - Speak Your Story: AI-powered voice notes. Speak and your words become clean, polished text. Works on any browser, installable as PWA.">
+    <meta name="theme-color" content="#1A1410">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>SYS - Speak Your Story</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ═══ Sidebar ═══ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand">
+                <span class="brand-icon">📖</span>
+                <div class="brand-text">
+                    <h1 class="brand-title">SYS</h1>
+                    <p class="brand-subtitle">Speak Your Story</p>
+                </div>
+            </div>
+            <button class="sidebar-toggle-btn" id="sidebarCloseBtn" aria-label="Close sidebar">✕</button>
+        </div>
+
+        <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" class="search-input" placeholder="Search notes…" autocomplete="off">
+        </div>
+
+        <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="pinned">📌 Pinned</button>
+            <button class="filter-tab" data-filter="recent">🕐 Recent</button>
+        </div>
+
+        <div class="sort-row">
+            <select id="sortSelect" class="sort-select">
+                <option value="modified">Recently Modified</option>
+                <option value="created">Recently Created</option>
+                <option value="title-az">Title (A → Z)</option>
+                <option value="title-za">Title (Z → A)</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+            <span class="note-count-badge" id="noteCountBadge">0</span>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <div class="note-list" id="noteList">
+            <!-- Note cards rendered by JS -->
+        </div>
+
+        <button class="new-note-btn" id="newNoteBtn">
+            <span>＋</span> New Note
+        </button>
+    </aside>
+
+    <!-- ═══ Main Content ═══ -->
+    <main class="main-content" id="mainContent">
+        <!-- Toolbar -->
+        <div class="toolbar" id="toolbar">
+            <button class="hamburger-btn" id="sidebarOpenBtn" aria-label="Open sidebar">☰</button>
+            <div class="mode-pill" id="modePill">⚡ Built-in Engine</div>
+            <div class="toolbar-spacer"></div>
+            <div class="toolbar-actions">
+                <button class="toolbar-btn accent-btn" id="summarizeBtn" title="Summarize note with AI">✨ Summarize</button>
+                <button class="toolbar-btn accent-btn" id="improveBtn" title="Improve writing with AI">📝 Improve</button>
+                <div class="toolbar-divider"></div>
+                <button class="toolbar-btn" id="copyBtn" title="Copy to clipboard">📋 Copy</button>
+                <button class="toolbar-btn" id="exportBtn" title="Download as Markdown">📥 Export</button>
+                <button class="toolbar-btn" id="pinBtn" title="Pin note">📌 Pin</button>
+                <button class="toolbar-btn danger-btn" id="deleteBtn" title="Delete note">🗑️</button>
+            </div>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-area" id="editorArea">
+            <input type="text" id="titleInput" class="title-input" placeholder="Note title…" autocomplete="off">
+
+            <div class="tags-bar" id="tagsBar">
+                <div class="tags-container" id="tagsContainer"></div>
+                <input type="text" id="tagInput" class="tag-input" placeholder="+ add tag…" autocomplete="off">
+            </div>
+
+            <textarea id="contentArea" class="content-area" placeholder="Start typing or click the microphone to speak…"></textarea>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-inner">
+                <span class="empty-icon">📖</span>
+                <h2 class="empty-title">SYS - Speak Your Story</h2>
+                <p class="empty-subtitle">Your AI-powered voice notes platform</p>
+                <div class="shortcuts-card">
+                    <div class="shortcut-row">
+                        <kbd>Ctrl+N</kbd>
+                        <span>New Note</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>Ctrl+F</kbd>
+                        <span>Search</span>
+                    </div>
+                    <div class="shortcut-row">
+                        <kbd>🎤 Click</kbd>
+                        <span>Voice Input</span>
+                    </div>
+                </div>
+                <button class="new-note-btn empty-cta" id="emptyNewNoteBtn">
+                    <span>＋</span> Create Your First Note
+                </button>
+            </div>
+        </div>
+
+        <!-- Speech Bar -->
+        <div class="speech-bar" id="speechBar">
+            <div class="speech-bar-inner">
+                <div class="mic-section">
+                    <button class="mic-btn" id="micBtn" disabled title="Start recording">
+                        <span class="mic-icon">🎤</span>
+                    </button>
+                    <span class="timer-label" id="timerLabel"></span>
+                </div>
+
+                <div class="speech-mid">
+                    <span class="status-label" id="statusLabel">Initializing…</span>
+                    <div class="level-bar-track">
+                        <div class="level-bar-fill" id="levelBarFill"></div>
+                    </div>
+                    <canvas class="waveform-canvas" id="waveformCanvas" height="24"></canvas>
+                </div>
+
+                <div class="engine-section">
+                    <select id="engineSelect" class="engine-select">
+                        <option value="builtin">⚡ Built-in (0MB RAM)</option>
+                        <option value="huggingface">🤗 Hugging Face Free AI</option>
+                        <option value="api">🌐 Cloud API</option>
+                    </select>
+                    <div class="engine-status">
+                        <span class="status-dot connected" id="engineDot"></span>
+                        <span class="engine-label" id="engineLabel">Ready</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>⚙️ Settings</h3>
+                <button class="modal-close" id="settingsCloseBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <label class="setting-label">Hugging Face API Token (optional)</label>
+                <input type="password" id="hfTokenInput" class="setting-input" placeholder="hf_xxxxxxxxxx…">
+                <p class="setting-hint">Free tier works without a token. Add one for higher rate limits.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-save-btn" id="settingsSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/notes.js"></script>
+    <script src="js/refiner.js"></script>
+    <script src="js/speech.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

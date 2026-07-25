@@ -1,0 +1,19 @@
+{
+    "name": "sys-speak-your-story",
+    "version": "1.0.0",
+    "description": "SYS - Speak Your Story mobile app (Capacitor wrapper)",
+    "private": true,
+    "scripts": {
+        "cap:sync": "npx cap sync android",
+        "cap:open": "npx cap open android",
+        "cap:build": "npx cap sync android && cd android && .\\gradlew assembleDebug"
+    },
+    "dependencies": {
+        "@capacitor/android": "^6.0.0",
+        "@capacitor/cli": "^6.0.0",
+        "@capacitor/core": "^6.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2"
+    }
+}

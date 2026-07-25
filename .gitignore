@@ -32,6 +32,16 @@ dist/
 SpeakStory.exe
 Launcher.cs
 
+# Mobile & Web Node build artifacts
+node_modules/
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/captures/
+mobile/android/.idea/
+*.apk
+
 # Docs & Interviewer Guide (Not committed to Git)
 docs/SpeakStory_Interviewer_Guide.md
 docs/*_Interviewer_Guide*

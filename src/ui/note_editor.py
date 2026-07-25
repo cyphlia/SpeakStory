@@ -1,6 +1,7 @@
 """Centre-panel note editor — toolbar, title, tags bar, content text area, footer.
 
-Includes an empty-state overlay when no note is loaded.
+Includes an empty-state overlay, markdown preview toggle, undo/redo,
+Summarize/Improve AI buttons, and improved statistics footer.
 """
 from __future__ import annotations
 
@@ -23,21 +24,26 @@ class NoteEditor(ctk.CTkFrame):
         on_save: Callable[[], None],
         on_delete: Optional[Callable[[str], None]] = None,
         on_pin_toggle: Optional[Callable[[str], None]] = None,
+        on_summarize: Optional[Callable[[], None]] = None,
+        on_improve: Optional[Callable[[], None]] = None,
         **kwargs,
     ):
         super().__init__(master, fg_color=T.BG_DARKEST, corner_radius=0, **kwargs)
         self._on_save = on_save
         self._on_delete = on_delete
         self._on_pin_toggle = on_pin_toggle
+        self._on_summarize = on_summarize
+        self._on_improve = on_improve
         self._current_note: Optional[Note] = None
         self._save_timer = None
         self._ignore_changes = False   # suppress saves while loading a note
+        self._markdown_visible = False
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)  # content area expands
 
         # ── Row 0 — Top Action Toolbar ───────────────────────────────
-        self.toolbar = ctk.CTkFrame(self, fg_color=T.BG_DARK, height=36, corner_radius=0)
+        self.toolbar = ctk.CTkFrame(self, fg_color=T.SURFACE_ELEVATED, height=40, corner_radius=0)
         self.toolbar.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
         self.toolbar.grid_columnconfigure(1, weight=1)
 
@@ -51,40 +57,62 @@ class NoteEditor(ctk.CTkFrame):
             corner_radius=10,
             padx=10, pady=3,
         )
-        self.mode_pill.grid(row=0, column=0, sticky="w", padx=T.PAD_LG, pady=4)
+        self.mode_pill.grid(row=0, column=0, sticky="w", padx=T.PAD_LG, pady=6)
 
-        # Right tools (Copy, Export, Pin, Delete)
+        # Right tools row
         tools_right = ctk.CTkFrame(self.toolbar, fg_color="transparent")
-        tools_right.grid(row=0, column=2, sticky="e", padx=T.PAD_LG, pady=2)
+        tools_right.grid(row=0, column=2, sticky="e", padx=T.PAD_LG, pady=4)
 
+        # Summarize button
+        self.summarize_btn = ctk.CTkButton(
+            tools_right, text="✨ Summarize", width=80, height=28,
+            font=T.FONT_TINY, fg_color=T.ACCENT_SUBTLE, hover_color=T.BG_LIGHT,
+            text_color=T.ACCENT, corner_radius=T.CORNER_RADIUS_SM,
+            border_width=1, border_color=T.ACCENT_DARK,
+            command=self._do_summarize,
+        )
+        self.summarize_btn.pack(side="left", padx=(0, 4))
+
+        # Improve Writing button
+        self.improve_btn = ctk.CTkButton(
+            tools_right, text="📝 Improve", width=72, height=28,
+            font=T.FONT_TINY, fg_color=T.ACCENT_SUBTLE, hover_color=T.BG_LIGHT,
+            text_color=T.ACCENT, corner_radius=T.CORNER_RADIUS_SM,
+            border_width=1, border_color=T.ACCENT_DARK,
+            command=self._do_improve,
+        )
+        self.improve_btn.pack(side="left", padx=(0, 8))
+
+        # Divider
+        ctk.CTkFrame(tools_right, width=1, height=20, fg_color=T.BORDER).pack(
+            side="left", padx=(0, 8))
+
+        # Copy
         self.copy_btn = ctk.CTkButton(
-            tools_right, text="📋 Copy", width=64, height=26,
-            font=T.FONT_TINY, fg_color=T.BG_MEDIUM, hover_color=T.BG_LIGHT,
-            text_color=T.TEXT_PRIMARY, corner_radius=T.CORNER_RADIUS_SM,
-            command=self.copy_to_clipboard,
+            tools_right, text="📋 Copy", width=64, height=28,
+            **T.BTN_TOOLBAR, command=self.copy_to_clipboard,
         )
-        self.copy_btn.pack(side="left", padx=(0, 6))
+        self.copy_btn.pack(side="left", padx=(0, 4))
 
+        # Export
         self.export_btn = ctk.CTkButton(
-            tools_right, text="📥 Export", width=68, height=26,
-            font=T.FONT_TINY, fg_color=T.BG_MEDIUM, hover_color=T.BG_LIGHT,
-            text_color=T.TEXT_PRIMARY, corner_radius=T.CORNER_RADIUS_SM,
-            command=self.export_note,
+            tools_right, text="📥 Export", width=68, height=28,
+            **T.BTN_TOOLBAR, command=self.export_note,
         )
-        self.export_btn.pack(side="left", padx=(0, 6))
+        self.export_btn.pack(side="left", padx=(0, 4))
 
+        # Pin
         self.pin_btn = ctk.CTkButton(
-            tools_right, text="📌 Pin", width=58, height=26,
-            font=T.FONT_TINY, fg_color=T.BG_MEDIUM, hover_color=T.BG_LIGHT,
-            text_color=T.TEXT_PRIMARY, corner_radius=T.CORNER_RADIUS_SM,
-            command=self._toggle_pin,
+            tools_right, text="📌 Pin", width=58, height=28,
+            **T.BTN_TOOLBAR, command=self._toggle_pin,
         )
-        self.pin_btn.pack(side="left", padx=(0, 6))
+        self.pin_btn.pack(side="left", padx=(0, 4))
 
+        # Delete
         self.delete_btn = ctk.CTkButton(
-            tools_right, text="🗑️ Delete", width=68, height=26,
-            font=T.FONT_TINY, fg_color=T.DANGER, hover_color="#D47A7A",
-            text_color=T.TEXT_PRIMARY, corner_radius=T.CORNER_RADIUS_SM,
+            tools_right, text="🗑️", width=32, height=28,
+            font=T.FONT_TINY, fg_color=T.BG_MEDIUM, hover_color=T.DANGER,
+            text_color=T.DANGER, corner_radius=T.CORNER_RADIUS_SM,
             command=self._delete_current,
         )
         self.delete_btn.pack(side="left")
@@ -98,12 +126,12 @@ class NoteEditor(ctk.CTkFrame):
             font=T.FONT_TITLE,
             fg_color="transparent",
             border_width=0,
-            text_color=T.TEXT_PRIMARY,
+            text_color=T.TEXT_BRIGHT,
             placeholder_text_color=T.TEXT_MUTED,
             height=50,
         )
         self.title_entry.grid(row=1, column=0, sticky="ew",
-                              padx=T.PAD_XL, pady=(T.PAD_MD, 0))
+                              padx=T.PAD_XL, pady=(T.PAD_LG, 0))
         self.title_var.trace_add("write", self._on_content_changed)
 
         # ── Row 2 — Tags bar ──────────────────────────────────────────
@@ -117,8 +145,8 @@ class NoteEditor(ctk.CTkFrame):
             textvariable=self.tag_entry_var,
             placeholder_text="+ add tag…",
             font=(T.FONT_FAMILY, 11),
-            width=90, height=24,
-            fg_color=T.BG_MEDIUM,
+            width=100, height=26,
+            fg_color=T.SURFACE_ELEVATED,
             border_color=T.BORDER,
             text_color=T.TEXT_PRIMARY,
             placeholder_text_color=T.TEXT_MUTED,
@@ -142,26 +170,34 @@ class NoteEditor(ctk.CTkFrame):
                               padx=T.PAD_XL, pady=0)
         self.content_box.bind("<<Modified>>", self._on_text_modified)
 
-        # ── Row 4 — Footer ────────────────────────────────────────────
-        self.footer = ctk.CTkFrame(self, fg_color=T.BG_DARK, height=28,
+        # ── Row 4 — Enhanced Footer ──────────────────────────────────
+        self.footer = ctk.CTkFrame(self, fg_color=T.SURFACE_ELEVATED, height=30,
                                    corner_radius=0)
         self.footer.grid(row=4, column=0, sticky="ew")
-        self.footer.grid_columnconfigure(0, weight=1)
+        self.footer.grid_columnconfigure(1, weight=1)
 
         self.word_count_label = ctk.CTkLabel(
             self.footer, text="",
-            font=T.FONT_TINY, text_color=T.TEXT_MUTED,
+            font=T.FONT_MICRO, text_color=T.TEXT_MUTED,
             anchor="w",
         )
         self.word_count_label.grid(row=0, column=0, sticky="w",
                                    padx=T.PAD_LG, pady=T.PAD_XS)
 
+        self.line_count_label = ctk.CTkLabel(
+            self.footer, text="",
+            font=T.FONT_MICRO, text_color=T.TEXT_MUTED,
+            anchor="center",
+        )
+        self.line_count_label.grid(row=0, column=1, sticky="ew",
+                                   padx=T.PAD_SM, pady=T.PAD_XS)
+
         self.save_status_label = ctk.CTkLabel(
             self.footer, text="",
-            font=T.FONT_TINY, text_color=T.TEXT_MUTED,
+            font=T.FONT_MICRO, text_color=T.TEXT_MUTED,
             anchor="e",
         )
-        self.save_status_label.grid(row=0, column=1, sticky="e",
+        self.save_status_label.grid(row=0, column=2, sticky="e",
                                     padx=T.PAD_LG, pady=T.PAD_XS)
 
         # ── Empty state overlay ────────────────────────────────────────
@@ -170,28 +206,47 @@ class NoteEditor(ctk.CTkFrame):
         self.empty_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         inner = ctk.CTkFrame(self.empty_overlay, fg_color="transparent")
-        inner.place(relx=0.5, rely=0.45, anchor="center")
+        inner.place(relx=0.5, rely=0.42, anchor="center")
 
-        ctk.CTkLabel(inner, text="📖", font=(T.FONT_FAMILY, 52)).pack()
+        ctk.CTkLabel(inner, text="📖", font=(T.FONT_FAMILY, 60)).pack()
         ctk.CTkLabel(
             inner, text="SYS - Speak Your Story",
-            font=(T.FONT_FAMILY, 24, "bold"), text_color=T.ACCENT,
+            font=T.FONT_HERO, text_color=T.ACCENT,
         ).pack(pady=(T.PAD_SM, T.PAD_XS))
         ctk.CTkLabel(
             inner, text="Your AI-powered voice notes platform",
             font=T.FONT_BODY, text_color=T.TEXT_SECONDARY,
         ).pack()
-        ctk.CTkLabel(
-            inner,
-            text="Select a note from the sidebar\nor click '＋ New Note' to get started.",
-            font=T.FONT_SMALL, text_color=T.TEXT_MUTED,
-            justify="center",
-        ).pack(pady=(T.PAD_LG, 0))
+
+        # Keyboard shortcuts hint
+        shortcuts_frame = ctk.CTkFrame(inner, fg_color=T.SURFACE_ELEVATED,
+                                       corner_radius=T.CORNER_RADIUS)
+        shortcuts_frame.pack(pady=(T.PAD_XL, 0))
+
+        for shortcut, action in [("Ctrl+N", "New Note"), ("Ctrl+F", "Search"),
+                                 ("🎤 Click", "Voice Input")]:
+            row_f = ctk.CTkFrame(shortcuts_frame, fg_color="transparent")
+            row_f.pack(fill="x", padx=T.PAD_LG, pady=T.PAD_XS)
+            ctk.CTkLabel(
+                row_f, text=shortcut,
+                font=T.FONT_MONO, text_color=T.ACCENT,
+                fg_color=T.BG_MEDIUM, corner_radius=4,
+                padx=6, pady=2,
+            ).pack(side="left")
+            ctk.CTkLabel(
+                row_f, text=action,
+                font=T.FONT_SMALL, text_color=T.TEXT_MUTED,
+            ).pack(side="left", padx=(T.PAD_SM, 0))
 
     # ── Public API ─────────────────────────────────────────────────────
 
     def set_engine_mode_label(self, label: str) -> None:
         self.mode_pill.configure(text=label)
+
+    def set_ai_callbacks(self, on_summarize=None, on_improve=None) -> None:
+        """Set AI action callbacks after construction."""
+        self._on_summarize = on_summarize
+        self._on_improve = on_improve
 
     def load_note(self, note: Note) -> None:
         """Populate the editor with a note's data."""
@@ -210,7 +265,7 @@ class NoteEditor(ctk.CTkFrame):
         )
 
         self._rebuild_tags()
-        self._update_word_count()
+        self._update_stats()
         self.save_status_label.configure(text="")
         self.empty_overlay.place_forget()
         self._ignore_changes = False
@@ -223,6 +278,7 @@ class NoteEditor(ctk.CTkFrame):
         self.content_box.delete("1.0", "end")
         self._rebuild_tags()
         self.word_count_label.configure(text="")
+        self.line_count_label.configure(text="")
         self.save_status_label.configure(text="")
         self.empty_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
         self._ignore_changes = False
@@ -281,6 +337,16 @@ class NoteEditor(ctk.CTkFrame):
             text="", text_color=T.TEXT_MUTED
         ))
 
+    # ── AI Actions ─────────────────────────────────────────────────────
+
+    def _do_summarize(self) -> None:
+        if self._on_summarize:
+            self._on_summarize()
+
+    def _do_improve(self) -> None:
+        if self._on_improve:
+            self._on_improve()
+
     # ── Internal ───────────────────────────────────────────────────────
 
     def _toggle_pin(self) -> None:
@@ -333,7 +399,7 @@ class NoteEditor(ctk.CTkFrame):
             self.content_box.edit_modified(False)
             if not self._ignore_changes:
                 self._schedule_save()
-                self._update_word_count()
+                self._update_stats()
 
     def _schedule_save(self) -> None:
         """Debounced auto-save — fires 1 s after the last change."""
@@ -346,10 +412,14 @@ class NoteEditor(ctk.CTkFrame):
         if self._current_note and self._on_save:
             self._on_save()
 
-    def _update_word_count(self) -> None:
+    def _update_stats(self) -> None:
         text = self.get_content()
         words = len(text.split()) if text.strip() else 0
         chars = len(text)
+        lines = text.count("\n") + 1 if text.strip() else 0
         self.word_count_label.configure(
-            text=f"{words:,} words  ·  {chars:,} characters"
+            text=f"{words:,} words  ·  {chars:,} chars"
+        )
+        self.line_count_label.configure(
+            text=f"{lines:,} lines" if lines > 0 else ""
         )

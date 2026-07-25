@@ -72,6 +72,8 @@ class MainWindow(ctk.CTk):
             on_save=self._save_current_note,
             on_delete=self._delete_note,
             on_pin_toggle=self._pin_toggle,
+            on_summarize=self._summarize_note,
+            on_improve=self._improve_note,
         )
         self.editor.grid(row=0, column=0, sticky="nsew")
 
@@ -112,6 +114,57 @@ class MainWindow(ctk.CTk):
             "ollama":      "🦙 Local Ollama Engine",
         }
         self.editor.set_engine_mode_label(labels.get(mode_key, mode_key))
+
+    # ═══════════════════════════════════════════════════════════════════
+    #  AI Actions (Summarize / Improve)
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _summarize_note(self) -> None:
+        """Send note content to the refiner for summarization."""
+        content = self.editor.get_content()
+        if not content.strip() or not self.pipeline:
+            return
+
+        self.editor.show_save_status("✨ Summarizing…")
+
+        def _do():
+            try:
+                prompt = f"Summarize the following text in 1-2 concise sentences:\n\n{content}"
+                result = self.pipeline.refiner.refine(prompt)
+                self.after(0, lambda: self._insert_summary(result))
+            except Exception as e:
+                self.after(0, lambda: self.editor.show_save_status("Summarize failed"))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _insert_summary(self, summary: str) -> None:
+        if summary:
+            self.editor.insert_text(f"\n\n--- Summary ---\n{summary}")
+            self.editor.show_save_status("Summary added ✓")
+
+    def _improve_note(self) -> None:
+        """Send note content to the refiner for grammar/style improvement."""
+        content = self.editor.get_content()
+        if not content.strip() or not self.pipeline:
+            return
+
+        self.editor.show_save_status("📝 Improving…")
+
+        def _do():
+            try:
+                result = self.pipeline.refiner.refine(content)
+                self.after(0, lambda: self._replace_with_improved(result))
+            except Exception as e:
+                self.after(0, lambda: self.editor.show_save_status("Improve failed"))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _replace_with_improved(self, improved: str) -> None:
+        if improved:
+            self.editor.content_box.delete("1.0", "end")
+            self.editor.content_box.insert("1.0", improved)
+            self.editor.show_save_status("Writing improved ✓")
+            self._save_current_note()
 
     # ═══════════════════════════════════════════════════════════════════
     #  Note operations
